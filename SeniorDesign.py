@@ -77,7 +77,7 @@ def initProgram():
 def Reddit():
     reddit = praw.Reddit(client_id=rd_client_id, client_secret=rd_client_secret, user_agent=rd_user_agent)
     subreddit = reddit.subreddit('news') #creates object representing subreddit
-    hot_articles = subreddit.hot(limit=1) #gets list of hot submissions in subreddit
+    hot_articles = subreddit.controversial(limit=1) #gets list of hot submissions in subreddit
     article_df = pd.DataFrame() # DataFrame of articles
     for submission in hot_articles: #iterates through submissions, adds titles to dataframe
         article_df.at[len(article_df), 'Title'] = submission.title
@@ -89,16 +89,16 @@ def Reddit():
 # ~ 'KeywordExtraction' Extracts N keywords from N articles ~ #
 def KeywordExtraction(article_df):
     ra = Rake()
-    keyword_df = pd.DataFrame()
     for row in article_df.itertuples(index=True, name='Pandas'):
         article = getattr(row, 'Title')
         print("Performing Keyword Extraction on this article: \n[", article, "]\n")
-        keyword_df = ra.extract_keywords_from_text(article)
-        print(keyword_df)
-        print("Ranked Phrases With Scores: ", ra.get_ranked_phrases_with_scores(), "\n")
-        keyword_df.at[len(keyword_df), row] = keyword_df #error here
+        keywords = ra.extract_keywords_from_text(article)
+        print(ra.get_ranked_phrases())
+        #print("Ranked Phrases With Scores: ", ra.get_ranked_phrases_with_scores(), "\n")
+        keywords = ra.get_ranked_phrases()
+        #keyword_df.at[len(keyword_df), 'Taylor'] = keywords #error here 
         print("--------------------------------")
-    return keyword_df
+    return keywords
 # ~ KeywordExtraction() ~ #
     
 # ~ 'Twitter' Returns DataFrame of tweets related to Keyword ~ #
@@ -108,15 +108,16 @@ def Twitter(keyword_df):
                   access_token_key=tw_access_token,
                   access_token_secret=tw_access_token_secret)
     #print(api.VerifyCredentials())
-    count=0
-    for keyword in keyword_df:
-        print(keyword)
-        #keyword = "Canada" #pass in keyword dataframe. In a forloop
-        query = "q=" + keyword + "&result_type=popular&count=10&tweet_mode=extended"
-        results = api.GetSearch(raw_query=query)
-        delimitedText = strip_all_entities(strip_links(results[count].full_text))
+    print(keyword_df[0])
+    print('\n')
+    #?q=from:rioferdy AND -filter:retweets AND -filter:replies&count=20&result_type=recent
+    #&result_type=recent&count=10&tweet_mode=extended
+    query = "q=" + keyword_df[0] + "&result_type=recent&count=10&tweet_mode=extended"
+    results = api.GetSearch(raw_query=query)
+    for i in range(0,9):
+        delimitedText = strip_all_entities(strip_links(results[i].full_text))
         print(delimitedText)
-        count=count+1
+        print('\n')
 # ~ Twitter() ~ #
     
 # ~ 'SentimentAnalysis' Performs Sentiment Analysis on Tweets ~ #
