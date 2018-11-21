@@ -23,6 +23,7 @@ import urllib
 import json
 import twitter
 import unittest
+import tweepy
 #New Imports
 ################################
 
@@ -77,7 +78,7 @@ def initProgram():
 def Reddit():
     reddit = praw.Reddit(client_id=rd_client_id, client_secret=rd_client_secret, user_agent=rd_user_agent)
     subreddit = reddit.subreddit('news') #creates object representing subreddit
-    hot_articles = subreddit.controversial(limit=1) #gets list of hot submissions in subreddit
+    hot_articles = subreddit.hot(limit=1) #gets list of hot submissions in subreddit
     article_df = pd.DataFrame() # DataFrame of articles
     for submission in hot_articles: #iterates through submissions, adds titles to dataframe
         article_df.at[len(article_df), 'Title'] = submission.title
@@ -103,21 +104,33 @@ def KeywordExtraction(article_df):
     
 # ~ 'Twitter' Returns DataFrame of tweets related to Keyword ~ #
 def Twitter(keyword_df):
-    api = twitter.api.Api(consumer_key=tw_consumer_key,
-                  consumer_secret=tw_consumer_secret,
-                  access_token_key=tw_access_token,
-                  access_token_secret=tw_access_token_secret)
+   try: 
+       # create OAuthHandler object 
+       auth = tweepy.OAuthHandler(tw_consumer_key, tw_consumer_secret) 
+       # set access token and secret 
+       auth.set_access_token(tw_access_token, tw_access_token_secret) 
+       # create tweepy API object to fetch tweets 
+       api = tweepy.API(auth) 
+   except: 
+       print("Error: Authentication Failed") 
+   #api = twitter.api.Api(consumer_key=tw_consumer_key,
+                  #consumer_secret=tw_consumer_secret,
+                  #access_token_key=tw_access_token,
+                  #access_token_secret=tw_access_token_secret)
     #print(api.VerifyCredentials())
-    print(keyword_df[0])
-    print('\n')
-    #?q=from:rioferdy AND -filter:retweets AND -filter:replies&count=20&result_type=recent
-    #&result_type=recent&count=10&tweet_mode=extended
-    query = "q=" + keyword_df[0] + "&result_type=recent&count=10&tweet_mode=extended"
-    results = api.GetSearch(raw_query=query)
-    for i in range(0,9):
-        delimitedText = strip_all_entities(strip_links(results[i].full_text))
-        print(delimitedText)
-        print('\n')
+   print(keyword_df[0])
+   print('\n')
+   #?q=from:rioferdy AND -filter:retweets AND -filter:replies&count=20&result_type=recent
+   #&result_type=recent&count=10&tweet_mode=extended
+   #query = "q=" + keyword_df[0] + "&result_type=recent&count=10&tweet_mode=extended"
+   try:
+       tweets = api.search(q = keyword_df[0] + "-filter:retweets", count = 10)
+       for i in range(0,9):
+           delimitedText = strip_all_entities(strip_links(tweets[i].text))
+           print(delimitedText)
+           print('\n')
+   except tweepy.TweepError as e: 
+            print("Error : " + str(e)) 
 # ~ Twitter() ~ #
     
 # ~ 'SentimentAnalysis' Performs Sentiment Analysis on Tweets ~ #
