@@ -21,9 +21,9 @@ import pandas as pd
 import requests
 import urllib
 import json
-import twitter
 import unittest
 import tweepy
+from textblob import TextBlob
 #New Imports
 ################################
 
@@ -70,15 +70,15 @@ def strip_all_entities(text):
     return ' '.join(words)
 
 def initProgram():
-    re = Reddit()
+    re = GetArticles()
     ke = KeywordExtraction(re)
     Twitter(ke)
     
 # ~ 'Reddit' Returns DataFrame of articles ~ #
-def Reddit():
+def GetArticles():
     reddit = praw.Reddit(client_id=rd_client_id, client_secret=rd_client_secret, user_agent=rd_user_agent)
-    subreddit = reddit.subreddit('news') #creates object representing subreddit
-    hot_articles = subreddit.hot(limit=1) #gets list of hot submissions in subreddit
+    subreddit = reddit.subreddit('worldnews') #creates object representing subreddit
+    hot_articles = subreddit.hot(limit=10) #gets list of hot submissions in subreddit
     article_df = pd.DataFrame() # DataFrame of articles
     for submission in hot_articles: #iterates through submissions, adds titles to dataframe
         article_df.at[len(article_df), 'Title'] = submission.title
@@ -89,9 +89,11 @@ def Reddit():
    
 # ~ 'KeywordExtraction' Extracts N keywords from N articles ~ #
 def KeywordExtraction(article_df):
-    ra = Rake()
+    ra = Rake(min_length = 3, max_length = 3)
+    appendedArticle = " "
     for row in article_df.itertuples(index=True, name='Pandas'):
         article = getattr(row, 'Title')
+        appendedArticle = appendedArticle + " " + article
         print("Performing Keyword Extraction on this article: \n[", article, "]\n")
         keywords = ra.extract_keywords_from_text(article)
         print(ra.get_ranked_phrases())
@@ -99,6 +101,24 @@ def KeywordExtraction(article_df):
         keywords = ra.get_ranked_phrases()
         #keyword_df.at[len(keyword_df), 'Taylor'] = keywords #error here 
         print("--------------------------------")
+        """
+         ra = Rake(ranking_metric=Metric.WORD_FREQUENCY)
+    appendedArticle = " "
+    appendedKW = " "
+    for row in article_df.itertuples(index=True, name='Pandas'):
+        article = getattr(row, 'Title')
+        appendedArticle = appendedArticle + " " + article
+    print("Performing Keyword Extraction on this article: \n[", appendedArticle, "]\n")
+    keywords = ra.extract_keywords_from_text(appendedArticle)
+    print(ra.get_ranked_phrases())
+        #print("Ranked Phrases With Scores: ", ra.get_ranked_phrases_with_scores(), "\n")
+    keywords = ra.get_ranked_phrases()
+    for item in keywords:
+        appendedKW = appendedKW + " " + str(item)
+    print(appendedKW)
+    keywords = ra.extract_keywords_from_text(appendedKW)
+    keywords = ra.get_ranked_phrases()
+        """
     return keywords
 # ~ KeywordExtraction() ~ #
     
@@ -124,11 +144,23 @@ def Twitter(keyword_df):
    #&result_type=recent&count=10&tweet_mode=extended
    #query = "q=" + keyword_df[0] + "&result_type=recent&count=10&tweet_mode=extended"
    try:
-       tweets = api.search(q = keyword_df[0] + "-filter:retweets", count = 10)
-       for i in range(0,9):
-           delimitedText = strip_all_entities(strip_links(tweets[i].text))
+       queryKeywords = keyword_df[0].split()
+       searchQuery = queryKeywords[0] + " " + queryKeywords[1] + " " + queryKeywords[2] + "-filter:retweets&result_type=popular"
+       print(searchQuery)
+       tweets = api.search(q =  searchQuery, count = 10)
+       for item in tweets:
+           delimitedText = strip_all_entities(strip_links(item.text))
+           analysis = TextBlob(delimitedText)
            print(delimitedText)
-           print('\n')
+           if(analysis.sentiment.polarity > 0):
+               print("Positive")
+           elif(analysis.sentiment.polarity == 0):
+               print("Neutral")
+           else:
+               print("Negative")  
+               print('\n')
+           print(item.user.location)
+           print('\n')  
    except tweepy.TweepError as e: 
             print("Error : " + str(e)) 
 # ~ Twitter() ~ #
